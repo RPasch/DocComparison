@@ -45,10 +45,13 @@ def convert_to_markdown(source_path: Path, out_md_path: Path) -> Path:
     try:
         logger.info(f"Starting conversion of {source_path.name}")
         
-        # Create converter with EasyOCR preference
-        # Docling will auto-select the best available OCR engine
+        # Set OCR engine preference to EasyOCR
+        # This prevents Docling from trying to use RapidOCR which has permission issues
+        os.environ["DOCLING_OCR_ENGINE"] = "easyocr"
+        
+        # Create converter
         converter = DoclingConverter()
-        logger.info("Starting document conversion with Docling")
+        logger.info("Starting document conversion with Docling (EasyOCR)")
         
         result = converter.convert(str(source_path))
         
