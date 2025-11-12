@@ -1,0 +1,36 @@
+# Output directories
+outputs/
+crew_analysis/
+
+# Environment
+.env
+.env.local
+venv/
+vennv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Streamlit
+.streamlit/
+.streamlit/secrets.toml
+
+# Python
+*.egg
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs
+*.log

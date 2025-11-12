@@ -1,0 +1,7 @@
+docling
+python-dotenv
+rich
+streamlit>=1.28.0
+crewai>=0.1.0
+crewai-tools>=0.1.0
+openai>=1.0.0
