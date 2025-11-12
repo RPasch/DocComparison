@@ -14,10 +14,3 @@ level = "info"
 [server]
 maxUploadSize = 200
 enableXsrfProtection = true
-
-# Environment variables for OCR
-[client.env]
-RAPIDOCR_HOME = "/tmp/doccomparison_ocr_cache"
-RAPIDOCR_MODELS_DIR = "/tmp/doccomparison_ocr_cache/models"
-HF_HOME = "/tmp/doccomparison_ocr_cache/huggingface"
-TORCH_HOME = "/tmp/doccomparison_ocr_cache/torch"

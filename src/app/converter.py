@@ -1,6 +1,5 @@
 from pathlib import Path
 from docling.document_converter import DocumentConverter as DoclingConverter
-from docling.pipeline_options import StandardPdfPipelineOptions
 from docling.exceptions import ConversionError
 import logging
 import os
@@ -46,18 +45,10 @@ def convert_to_markdown(source_path: Path, out_md_path: Path) -> Path:
     try:
         logger.info(f"Starting conversion of {source_path.name}")
         
-        # Use EasyOCR instead of RapidOCR for better deployment compatibility
-        try:
-            pipeline_options = StandardPdfPipelineOptions(
-                do_ocr=True,
-                ocr_engine="easyocr"  # Use EasyOCR instead of RapidOCR
-            )
-            converter = DoclingConverter(pipeline_options=pipeline_options)
-            logger.info("Using EasyOCR engine for conversion")
-        except Exception as e:
-            logger.warning(f"Could not configure EasyOCR, using default: {e}")
-            # Fallback to default converter
-            converter = DoclingConverter()
+        # Create converter with EasyOCR preference
+        # Docling will auto-select the best available OCR engine
+        converter = DoclingConverter()
+        logger.info("Starting document conversion with Docling")
         
         result = converter.convert(str(source_path))
         
