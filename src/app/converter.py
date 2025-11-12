@@ -1,5 +1,6 @@
 from pathlib import Path
 from docling.document_converter import DocumentConverter as DoclingConverter
+from docling.pipeline_options import StandardPdfPipelineOptions
 from docling.exceptions import ConversionError
 import logging
 import os
@@ -7,7 +8,7 @@ import tempfile
 
 logger = logging.getLogger(__name__)
 
-# Configure RapidOCR to use a writable temp directory for model downloads
+# Configure OCR cache and disable RapidOCR in favor of EasyOCR
 # This fixes permission issues in deployment environments
 def _setup_ocr_cache():
     """Setup OCR model cache in a writable temporary directory."""
@@ -18,39 +19,16 @@ def _setup_ocr_cache():
         models_dir = temp_dir / "models"
         models_dir.mkdir(parents=True, exist_ok=True)
         
-        # Set environment variables for RapidOCR and other ML libraries
+        # Set environment variables for ML libraries
         os.environ["RAPIDOCR_HOME"] = str(temp_dir)
         os.environ["RAPIDOCR_MODELS_DIR"] = str(models_dir)
         os.environ["HF_HOME"] = str(temp_dir / "huggingface")
         os.environ["TORCH_HOME"] = str(temp_dir / "torch")
+        os.environ["EASYOCR_HOME"] = str(temp_dir / "easyocr")
         
         logger.info(f"OCR cache directory set to: {temp_dir}")
         logger.info(f"Models directory: {models_dir}")
         
-        # Try to patch RapidOCR's download function to use our temp directory
-        try:
-            from rapidocr.utils.download_file import download_file as original_download
-            
-            def patched_download(url, save_path):
-                """Patched download that uses our temp directory."""
-                # Redirect any venv paths to our temp directory
-                if "site-packages/rapidocr" in str(save_path):
-                    save_path = str(save_path).replace(
-                        "site-packages/rapidocr/models",
-                        str(models_dir)
-                    )
-                    save_path = Path(save_path)
-                    save_path.parent.mkdir(parents=True, exist_ok=True)
-                
-                return original_download(url, save_path)
-            
-            # Monkey patch the download function
-            import rapidocr.utils.download_file
-            rapidocr.utils.download_file.download_file = patched_download
-            logger.info("RapidOCR download function patched successfully")
-        except Exception as e:
-            logger.warning(f"Could not patch RapidOCR download: {e}")
-            
     except Exception as e:
         logger.warning(f"Could not setup OCR cache directory: {e}")
 
@@ -60,14 +38,27 @@ _setup_ocr_cache()
 def convert_to_markdown(source_path: Path, out_md_path: Path) -> Path:
     """
     Uses Docling to convert a local file (PDF/image/etc.) to Markdown.
-    Handles permission issues with OCR model downloads.
+    Uses EasyOCR for better deployment compatibility.
     """
     if not source_path.exists():
         raise FileNotFoundError(f"Input not found: {source_path}")
 
     try:
         logger.info(f"Starting conversion of {source_path.name}")
-        converter = DoclingConverter()
+        
+        # Use EasyOCR instead of RapidOCR for better deployment compatibility
+        try:
+            pipeline_options = StandardPdfPipelineOptions(
+                do_ocr=True,
+                ocr_engine="easyocr"  # Use EasyOCR instead of RapidOCR
+            )
+            converter = DoclingConverter(pipeline_options=pipeline_options)
+            logger.info("Using EasyOCR engine for conversion")
+        except Exception as e:
+            logger.warning(f"Could not configure EasyOCR, using default: {e}")
+            # Fallback to default converter
+            converter = DoclingConverter()
+        
         result = converter.convert(str(source_path))
         
         # Check if conversion was successful
