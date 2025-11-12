@@ -5,6 +5,12 @@ from pathlib import Path
 import tempfile
 import json
 from datetime import datetime
+import sys
+import os
+
+# Add the project root to the Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 
 # Import pipeline functions
 from src.app.config import resolve_output, OUTPUT_DIR, get_env
