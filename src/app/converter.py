@@ -1,24 +1,12 @@
 from pathlib import Path
+from docling.document_converter import DocumentConverter as DoclingConverter
+from docling.exceptions import ConversionError
 import logging
 import os
 import tempfile
 import subprocess
 
 logger = logging.getLogger(__name__)
-
-# Check if Tesseract is installed
-def _check_tesseract():
-    """Check if Tesseract OCR is available."""
-    try:
-        result = subprocess.run(['tesseract', '--version'], capture_output=True, text=True)
-        if result.returncode == 0:
-            logger.info("Tesseract OCR is available")
-            return True
-    except FileNotFoundError:
-        logger.warning("Tesseract OCR not found in system PATH")
-    return False
-
-_tesseract_available = _check_tesseract()
 
 # Configure OCR cache and disable RapidOCR in favor of EasyOCR
 # This fixes permission issues in deployment environments
@@ -49,39 +37,31 @@ _setup_ocr_cache()
 
 def convert_to_markdown(source_path: Path, out_md_path: Path = None) -> str:
     """
-    Converts PDF/image to Markdown using pdf2image + Tesseract OCR.
-    Avoids RapidOCR permission issues by using direct OCR approach.
+    Uses Docling to convert a local file (PDF/image/etc.) to Markdown.
+    Uses EasyOCR for better deployment compatibility.
     """
     if not source_path.exists():
         raise FileNotFoundError(f"Input not found: {source_path}")
 
-    if not _tesseract_available:
-        raise RuntimeError("Tesseract OCR is not installed. Cannot process scanned documents.")
-
     try:
         logger.info(f"Starting conversion of {source_path.name}")
         
-        from pdf2image import convert_from_path
-        import pytesseract
-        from PIL import Image
+        # Create converter - Docling will auto-select best available OCR
+        # Since RapidOCR is uninstalled, it will use EasyOCR
+        converter = DoclingConverter()
+        logger.info("Starting document conversion with Docling")
+        result = converter.convert(str(source_path))
         
-        # Convert PDF to images
-        logger.info(f"Converting PDF to images...")
-        images = convert_from_path(str(source_path), dpi=300)
-        logger.info(f"Converted {len(images)} pages")
+        # Check if conversion was successful
+        if result is None or result.document is None:
+            raise RuntimeError(f"No document returned from conversion")
         
-        # Extract text from each image using Tesseract
-        all_text = []
-        for page_num, image in enumerate(images, 1):
-            logger.info(f"OCR processing page {page_num}/{len(images)}")
-            text = pytesseract.image_to_string(image)
-            if text.strip():
-                all_text.append(f"## Page {page_num}\n\n{text}")
+        # Export to markdown
+        md = result.document.export_to_markdown()
         
-        if not all_text:
-            raise RuntimeError(f"No text extracted from {source_path.name}")
+        if not md or len(md.strip()) == 0:
+            raise RuntimeError(f"No content extracted")
         
-        md = "\n\n---\n\n".join(all_text)
         logger.info(f"Successfully converted {source_path.name} to markdown")
         
         # Optionally save to file if path provided
@@ -89,6 +69,11 @@ def convert_to_markdown(source_path: Path, out_md_path: Path = None) -> str:
             out_md_path.write_text(md, encoding="utf-8")
         
         return md
+        
+    except ConversionError as e:
+        error_str = str(e)
+        logger.error(f"Docling conversion error for {source_path.name}: {error_str}")
+        raise RuntimeError(f"Conversion failed for {source_path.name}: {error_str}")
         
     except Exception as e:
         logger.error(f"Error converting {source_path.name}: {str(e)}", exc_info=True)
