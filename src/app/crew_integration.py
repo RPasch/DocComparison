@@ -28,39 +28,35 @@ class CrewAIProcessor:
         self.format_agent = DocumentFormatAgent(api_key)
         self.compliance_agent = ComplianceAnalysisAgent(api_key)
     
-    def process_document(self, markdown_file: Path) -> dict:
+    def process_document(self, markdown_content: str, doc_name: str = "document") -> dict:
         """
         Process a single document through the formatting agent.
         
         Args:
-            markdown_file: Path to the markdown file from OCR
+            markdown_content: Markdown content as string
+            doc_name: Name of the document for logging
             
         Returns:
             Structured JSON output from the formatting agent
         """
-        if not markdown_file.exists():
-            raise FileNotFoundError(f"Markdown file not found: {markdown_file}")
-        
-        markdown_content = markdown_file.read_text(encoding="utf-8")
-        
-        print(f"Processing document: {markdown_file.name}")
+        print(f"Processing document: {doc_name}")
         formatted_json = self.format_agent.format_document(markdown_content)
         
         return formatted_json
     
-    def process_both_documents(self, markdown_file1: Path, markdown_file2: Path) -> Tuple[dict, dict]:
+    def process_both_documents(self, markdown_content1: str, markdown_content2: str) -> Tuple[dict, dict]:
         """
         Process both documents through the formatting agent.
         
         Args:
-            markdown_file1: Path to first markdown file
-            markdown_file2: Path to second markdown file
+            markdown_content1: First markdown content as string
+            markdown_content2: Second markdown content as string
             
         Returns:
             Tuple of (doc1_json, doc2_json)
         """
-        doc1_json = self.process_document(markdown_file1)
-        doc2_json = self.process_document(markdown_file2)
+        doc1_json = self.process_document(markdown_content1, "document_1")
+        doc2_json = self.process_document(markdown_content2, "document_2")
         
         return doc1_json, doc2_json
     
@@ -81,14 +77,14 @@ class CrewAIProcessor:
         
         return report
     
-    def full_pipeline(self, markdown_file1: Path, markdown_file2: Path, 
+    def full_pipeline(self, markdown_content1: str, markdown_content2: str, 
                      comparison_result: Optional[dict] = None) -> dict:
         """
         Run the full pipeline: format both documents and analyze compliance.
         
         Args:
-            markdown_file1: Path to first markdown file
-            markdown_file2: Path to second markdown file
+            markdown_content1: First markdown content as string
+            markdown_content2: Second markdown content as string
             comparison_result: Optional comparison result
             
         Returns:
@@ -97,7 +93,7 @@ class CrewAIProcessor:
         print("Starting full CrewAI pipeline...")
         
         # Step 1: Format both documents
-        doc1_json, doc2_json = self.process_both_documents(markdown_file1, markdown_file2)
+        doc1_json, doc2_json = self.process_both_documents(markdown_content1, markdown_content2)
         
         # Step 2: Analyze compliance
         compliance_report = self.analyze_compliance(doc1_json, doc2_json, comparison_result)

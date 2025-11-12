@@ -287,17 +287,15 @@ if "md1_content" in st.session_state and "md2_content" in st.session_state:
                         # Initialize CrewAI processor
                         processor = CrewAIProcessor(api_key)
                         
-                        # Run full pipeline
+                        # Run full pipeline with in-memory content
                         st.info("Step 1: Formatting documents with AI...")
                         results = processor.full_pipeline(
-                            st.session_state.md1_path,
-                            st.session_state.md2_path
+                            st.session_state.md1_content,
+                            st.session_state.md2_content
                         )
                         
-                        # Save results
-                        st.info("Step 2: Saving analysis results...")
-                        crew_output_dir = OUTPUT_DIR / "crew_analysis" / datetime.now().strftime('%Y%m%d_%H%M%S')
-                        saved_files = save_crew_results(results, crew_output_dir)
+                        # Display results (no file saving needed)
+                        st.info("Step 2: Analysis complete!")
                         
                         st.success("✅ CrewAI analysis completed!")
                         
@@ -350,8 +348,6 @@ if "md1_content" in st.session_state and "md2_content" in st.session_state:
                                 file_name="compliance_report.json",
                                 mime="application/json"
                             )
-                        
-                        st.info(f"📁 All results saved to: `{crew_output_dir}`")
                         
                     except ValueError as e:
                         st.error(f"❌ Configuration error: {str(e)}")
