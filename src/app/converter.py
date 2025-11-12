@@ -28,15 +28,6 @@ def _setup_ocr_cache():
         logger.info(f"OCR cache directory set to: {temp_dir}")
         logger.info(f"Models directory: {models_dir}")
         
-        # Try to disable RapidOCR by hiding it from Docling
-        try:
-            import sys
-            # Block rapidocr import
-            sys.modules['rapidocr'] = None
-            logger.info("RapidOCR module blocked - forcing EasyOCR")
-        except Exception as e:
-            logger.warning(f"Could not block RapidOCR: {e}")
-        
     except Exception as e:
         logger.warning(f"Could not setup OCR cache directory: {e}")
 
