@@ -6,5 +6,6 @@ crewai>=0.1.0
 crewai-tools>=0.1.0
 openai>=1.0.0
 easyocr>=1.7.0
+PyPDF2>=3.0.0
 # Note: rapidocr is excluded to avoid permission issues in deployment
-# Docling will use EasyOCR instead
+# Fallback to PyPDF2 for text-only extraction if OCR fails

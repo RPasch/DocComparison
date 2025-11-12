@@ -37,7 +37,7 @@ _setup_ocr_cache()
 def convert_to_markdown(source_path: Path, out_md_path: Path = None) -> str:
     """
     Uses Docling to convert a local file (PDF/image/etc.) to Markdown.
-    Uses EasyOCR for better deployment compatibility.
+    Falls back to text-only extraction if OCR fails.
     """
     if not source_path.exists():
         raise FileNotFoundError(f"Input not found: {source_path}")
@@ -45,49 +45,70 @@ def convert_to_markdown(source_path: Path, out_md_path: Path = None) -> str:
     try:
         logger.info(f"Starting conversion of {source_path.name}")
         
-        # Set OCR engine preference to EasyOCR
-        # This prevents Docling from trying to use RapidOCR which has permission issues
-        os.environ["DOCLING_OCR_ENGINE"] = "easyocr"
-        
-        # Create converter
-        converter = DoclingConverter()
-        logger.info("Starting document conversion with Docling (EasyOCR)")
-        
-        result = converter.convert(str(source_path))
-        
-        # Check if conversion was successful
-        if result is None or result.document is None:
-            error_msg = f"Conversion failed for: {source_path.name} - No document returned"
-            logger.error(error_msg)
-            raise RuntimeError(error_msg)
-        
-        # Export to markdown
-        md = result.document.export_to_markdown()
-        
-        if not md or len(md.strip()) == 0:
-            raise RuntimeError(f"No content extracted from {source_path.name}")
-        
-        # Optionally save to file if path provided
-        if out_md_path:
-            out_md_path.write_text(md, encoding="utf-8")
-        
-        logger.info(f"Successfully converted {source_path.name} to markdown")
-        return md
-        
-    except ConversionError as e:
-        # Handle Docling conversion errors
-        error_str = str(e)
-        logger.error(f"Docling conversion error for {source_path.name}: {error_str}")
-        
-        if "Permission denied" in error_str or "FAILURE" in error_str:
-            error_msg = (
-                f"Cannot process {source_path.name}: OCR model download failed due to permissions. "
-                "This is a deployment environment limitation. "
-                "Please try with a text-based PDF or contact support."
-            )
-            raise RuntimeError(error_msg)
-        else:
-            raise RuntimeError(f"Conversion failed for {source_path.name}: {error_str}")
+        # Try with default converter first
+        try:
+            converter = DoclingConverter()
+            logger.info("Starting document conversion with Docling")
+            result = converter.convert(str(source_path))
+            
+            # Check if conversion was successful
+            if result is None or result.document is None:
+                raise RuntimeError(f"No document returned from conversion")
+            
+            # Export to markdown
+            md = result.document.export_to_markdown()
+            
+            if not md or len(md.strip()) == 0:
+                raise RuntimeError(f"No content extracted")
+            
+            logger.info(f"Successfully converted {source_path.name} to markdown")
+            
+            # Optionally save to file if path provided
+            if out_md_path:
+                out_md_path.write_text(md, encoding="utf-8")
+            
+            return md
+            
+        except Exception as e:
+            error_str = str(e)
+            
+            # If OCR failed due to permissions, try extracting text without OCR
+            if "Permission denied" in error_str or "FAILURE" in error_str:
+                logger.warning(f"OCR failed, attempting text-only extraction: {error_str}")
+                
+                # Try using PyPDF2 for text extraction as fallback
+                try:
+                    import PyPDF2
+                    
+                    text_content = []
+                    with open(source_path, 'rb') as pdf_file:
+                        pdf_reader = PyPDF2.PdfReader(pdf_file)
+                        for page_num in range(len(pdf_reader.pages)):
+                            page = pdf_reader.pages[page_num]
+                            text = page.extract_text()
+                            if text:
+                                text_content.append(text)
+                    
+                    if text_content:
+                        md = "\n\n".join(text_content)
+                        logger.info(f"Successfully extracted text from {source_path.name} (no OCR)")
+                        
+                        if out_md_path:
+                            out_md_path.write_text(md, encoding="utf-8")
+                        
+                        return md
+                except Exception as pypdf_error:
+                    logger.warning(f"PyPDF2 fallback failed: {pypdf_error}")
+                
+                # If all else fails, provide helpful error
+                error_msg = (
+                    f"Cannot process {source_path.name}: OCR model download failed due to permissions. "
+                    "This is a deployment environment limitation. "
+                    "Please try with a text-based PDF or contact support."
+                )
+                raise RuntimeError(error_msg)
+            else:
+                raise
         
     except Exception as e:
         logger.error(f"Error converting {source_path.name}: {str(e)}", exc_info=True)
