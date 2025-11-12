@@ -4,8 +4,23 @@ from docling.exceptions import ConversionError
 import logging
 import os
 import tempfile
+import subprocess
 
 logger = logging.getLogger(__name__)
+
+# Check if Tesseract is installed
+def _check_tesseract():
+    """Check if Tesseract OCR is available."""
+    try:
+        result = subprocess.run(['tesseract', '--version'], capture_output=True, text=True)
+        if result.returncode == 0:
+            logger.info("Tesseract OCR is available")
+            return True
+    except FileNotFoundError:
+        logger.warning("Tesseract OCR not found in system PATH")
+    return False
+
+_tesseract_available = _check_tesseract()
 
 # Configure OCR cache and disable RapidOCR in favor of EasyOCR
 # This fixes permission issues in deployment environments
@@ -45,11 +60,15 @@ def convert_to_markdown(source_path: Path, out_md_path: Path = None) -> str:
     try:
         logger.info(f"Starting conversion of {source_path.name}")
         
-        # Set Tesseract as preferred OCR engine
-        os.environ["DOCLING_OCR_ENGINE"] = "tesseract"
+        # Set Tesseract as preferred OCR engine if available
+        if _tesseract_available:
+            os.environ["DOCLING_OCR_ENGINE"] = "tesseract"
+            logger.info("Using Tesseract OCR engine")
+        else:
+            logger.warning("Tesseract not available, using default OCR engine")
         
         converter = DoclingConverter()
-        logger.info("Starting document conversion with Docling (Tesseract OCR)")
+        logger.info(f"Starting document conversion with Docling")
         result = converter.convert(str(source_path))
         
         # Check if conversion was successful
