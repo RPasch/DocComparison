@@ -3,8 +3,29 @@ from docling.document_converter import DocumentConverter as DoclingConverter
 from docling.exceptions import ConversionError
 import logging
 import os
+import tempfile
 
 logger = logging.getLogger(__name__)
+
+# Configure RapidOCR to use a writable temp directory for model downloads
+# This fixes permission issues in deployment environments
+def _setup_ocr_cache():
+    """Setup OCR model cache in a writable temporary directory."""
+    try:
+        # Create a temp directory for OCR models
+        temp_dir = Path(tempfile.gettempdir()) / "doccomparison_ocr_cache"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Set environment variables for RapidOCR
+        os.environ["RAPIDOCR_HOME"] = str(temp_dir)
+        os.environ["RAPIDOCR_MODELS_DIR"] = str(temp_dir / "models")
+        
+        logger.info(f"OCR cache directory set to: {temp_dir}")
+    except Exception as e:
+        logger.warning(f"Could not setup OCR cache directory: {e}")
+
+# Setup OCR cache on module load
+_setup_ocr_cache()
 
 def convert_to_markdown(source_path: Path, out_md_path: Path) -> Path:
     """
