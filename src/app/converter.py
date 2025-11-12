@@ -1,6 +1,5 @@
 from pathlib import Path
 from docling.document_converter import DocumentConverter as DoclingConverter
-from docling_core.types import ConversionStatus
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,16 +16,11 @@ def convert_to_markdown(source_path: Path, out_md_path: Path) -> Path:
         converter = DoclingConverter()
         result = converter.convert(str(source_path))
         
-        # Check conversion status
-        if result.status == ConversionStatus.FAILURE:
-            error_msg = f"Conversion failed for: {source_path.name}"
-            if result.errors:
-                error_msg += f". Errors: {result.errors}"
+        # Check if conversion was successful
+        if result is None or result.document is None:
+            error_msg = f"Conversion failed for: {source_path.name} - No document returned"
             logger.error(error_msg)
             raise RuntimeError(error_msg)
-        
-        if result.status == ConversionStatus.PARTIAL_SUCCESS:
-            logger.warning(f"Partial conversion for {source_path.name}: {result.errors}")
         
         # Export to markdown
         md = result.document.export_to_markdown()
