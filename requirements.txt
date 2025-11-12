@@ -7,4 +7,5 @@ crewai-tools>=0.1.0
 openai>=1.0.0
 pytesseract>=0.3.10
 Pillow>=10.0.0
-# Using Tesseract OCR instead of RapidOCR to avoid permission issues in deployment
+pdf2image>=1.16.0
+# Using direct PDF to image + Tesseract OCR to avoid RapidOCR permission issues
