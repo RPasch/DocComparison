@@ -34,7 +34,7 @@ def _setup_ocr_cache():
 # Setup OCR cache on module load
 _setup_ocr_cache()
 
-def convert_to_markdown(source_path: Path, out_md_path: Path) -> Path:
+def convert_to_markdown(source_path: Path, out_md_path: Path = None) -> str:
     """
     Uses Docling to convert a local file (PDF/image/etc.) to Markdown.
     Uses EasyOCR for better deployment compatibility.
@@ -67,9 +67,12 @@ def convert_to_markdown(source_path: Path, out_md_path: Path) -> Path:
         if not md or len(md.strip()) == 0:
             raise RuntimeError(f"No content extracted from {source_path.name}")
         
-        out_md_path.write_text(md, encoding="utf-8")
+        # Optionally save to file if path provided
+        if out_md_path:
+            out_md_path.write_text(md, encoding="utf-8")
+        
         logger.info(f"Successfully converted {source_path.name} to markdown")
-        return out_md_path
+        return md
         
     except ConversionError as e:
         # Handle Docling conversion errors

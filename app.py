@@ -22,7 +22,7 @@ sys.path.insert(0, str(project_root))
 # Import pipeline functions
 from src.app.config import resolve_output, OUTPUT_DIR, get_env
 from src.app.converter import convert_to_markdown
-from src.app.text_utils import remove_arabic_chars, remove_duplicate_lines
+from src.app.text_utils import remove_arabic_chars, remove_duplicate_lines, remove_arabic_chars_in_memory, remove_duplicate_lines_in_memory
 from src.app.compare import compare_files
 from src.app.export import markdown_to_json
 from src.app.crew_integration import CrewAIProcessor, save_crew_results
@@ -105,41 +105,31 @@ if st.button("🚀 Process Documents", type="primary", use_container_width=True)
                     
                     # Process document 1
                     st.info("Converting Document 1 to markdown...")
-                    md1_path = resolve_output(f"doc1_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md")
-                    convert_to_markdown(source1, md1_path)
+                    md1_content = convert_to_markdown(source1, None)
                     
                     if remove_arabic:
                         st.info("Removing Arabic characters from Document 1...")
-                        filtered1_path = md1_path.parent / f"{md1_path.stem}_filtered.md"
-                        remove_arabic_chars(md1_path, filtered1_path)
-                        md1_path = filtered1_path
+                        md1_content = remove_arabic_chars_in_memory(md1_content)
                     
                     if deduplicate:
                         st.info("Deduplicating lines in Document 1...")
-                        unique1_path = md1_path.parent / f"{md1_path.stem}_unique.md"
-                        remove_duplicate_lines(md1_path, unique1_path)
-                        md1_path = unique1_path
+                        md1_content = remove_duplicate_lines_in_memory(md1_content)
                     
                     # Process document 2
                     st.info("Converting Document 2 to markdown...")
-                    md2_path = resolve_output(f"doc2_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md")
-                    convert_to_markdown(source2, md2_path)
+                    md2_content = convert_to_markdown(source2, None)
                     
                     if remove_arabic:
                         st.info("Removing Arabic characters from Document 2...")
-                        filtered2_path = md2_path.parent / f"{md2_path.stem}_filtered.md"
-                        remove_arabic_chars(md2_path, filtered2_path)
-                        md2_path = filtered2_path
+                        md2_content = remove_arabic_chars_in_memory(md2_content)
                     
                     if deduplicate:
                         st.info("Deduplicating lines in Document 2...")
-                        unique2_path = md2_path.parent / f"{md2_path.stem}_unique.md"
-                        remove_duplicate_lines(md2_path, unique2_path)
-                        md2_path = unique2_path
+                        md2_content = remove_duplicate_lines_in_memory(md2_content)
                     
                     # Store in session state
-                    st.session_state.md1_path = md1_path
-                    st.session_state.md2_path = md2_path
+                    st.session_state.md1_content = md1_content
+                    st.session_state.md2_content = md2_content
                     
                     st.success("✅ Documents processed successfully!")
             except Exception as e:
@@ -158,7 +148,7 @@ if st.button("🚀 Process Documents", type="primary", use_container_width=True)
                     )
 
 # Display results if available
-if "md1_path" in st.session_state and "md2_path" in st.session_state:
+if "md1_content" in st.session_state and "md2_content" in st.session_state:
     st.markdown("---")
     st.subheader("📊 Results")
     
@@ -166,7 +156,7 @@ if "md1_path" in st.session_state and "md2_path" in st.session_state:
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["Markdown 1", "Markdown 2", "Comparison", "JSON Export", "CrewAI Analysis"])
     
     with tab1:
-        md1_content = st.session_state.md1_path.read_text(encoding="utf-8")
+        md1_content = st.session_state.md1_content
         st.markdown("### Document 1 - Markdown")
         st.text_area(
             "Document 1 Content",
@@ -178,12 +168,12 @@ if "md1_path" in st.session_state and "md2_path" in st.session_state:
         st.download_button(
             "⬇️ Download Markdown 1",
             data=md1_content,
-            file_name=st.session_state.md1_path.name,
+            file_name="document_1.md",
             mime="text/markdown"
         )
     
     with tab2:
-        md2_content = st.session_state.md2_path.read_text(encoding="utf-8")
+        md2_content = st.session_state.md2_content
         st.markdown("### Document 2 - Markdown")
         st.text_area(
             "Document 2 Content",
@@ -195,7 +185,7 @@ if "md1_path" in st.session_state and "md2_path" in st.session_state:
         st.download_button(
             "⬇️ Download Markdown 2",
             data=md2_content,
-            file_name=st.session_state.md2_path.name,
+            file_name="document_2.md",
             mime="text/markdown"
         )
     
@@ -203,8 +193,10 @@ if "md1_path" in st.session_state and "md2_path" in st.session_state:
         if run_comparison:
             st.markdown("### Document Comparison")
             
-            # Exact comparison
-            same = compare_files(st.session_state.md1_path, st.session_state.md2_path)
+            # Compare in-memory content
+            md1_lines = st.session_state.md1_content.splitlines()
+            md2_lines = st.session_state.md2_content.splitlines()
+            same = md1_lines == md2_lines
             
             if same:
                 st.success("✅ Documents are **IDENTICAL**")
@@ -212,9 +204,6 @@ if "md1_path" in st.session_state and "md2_path" in st.session_state:
                 st.warning("⚠️ Documents are **DIFFERENT**")
                 
                 # Show diff stats
-                md1_lines = md1_content.splitlines()
-                md2_lines = md2_content.splitlines()
-                
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("Doc 1 Lines", len(md1_lines))
@@ -240,40 +229,36 @@ if "md1_path" in st.session_state and "md2_path" in st.session_state:
     with tab4:
         st.markdown("### JSON Export")
         
-        # Export to JSON
-        json1_path = st.session_state.md1_path.parent / f"{st.session_state.md1_path.stem}.json"
-        json2_path = st.session_state.md2_path.parent / f"{st.session_state.md2_path.stem}.json"
+        # Convert markdown to JSON in memory
+        md1_lines = [line for line in st.session_state.md1_content.splitlines() if line.strip()]
+        md2_lines = [line for line in st.session_state.md2_content.splitlines() if line.strip()]
         
-        markdown_to_json(st.session_state.md1_path, json1_path)
-        markdown_to_json(st.session_state.md2_path, json2_path)
+        json1_content = json.dumps(md1_lines, indent=2, ensure_ascii=False)
+        json2_content = json.dumps(md2_lines, indent=2, ensure_ascii=False)
         
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("#### Document 1 - JSON")
-            json1_content = json1_path.read_text(encoding="utf-8")
-            st.json(json.loads(json1_content)[:20])  # Show first 20 lines
+            st.json(md1_lines[:20])  # Show first 20 lines
             st.download_button(
                 "⬇️ Download JSON 1",
                 data=json1_content,
-                file_name=json1_path.name,
+                file_name="document_1.json",
                 mime="application/json",
                 key="json1"
             )
         
         with col2:
             st.markdown("#### Document 2 - JSON")
-            json2_content = json2_path.read_text(encoding="utf-8")
-            st.json(json.loads(json2_content)[:20])  # Show first 20 lines
+            st.json(md2_lines[:20])  # Show first 20 lines
             st.download_button(
                 "⬇️ Download JSON 2",
                 data=json2_content,
-                file_name=json2_path.name,
+                file_name="document_2.json",
                 mime="application/json",
                 key="json2"
             )
-        
-        st.info(f"Full JSON files saved to `{OUTPUT_DIR}`")
     
     with tab5:
         st.markdown("### 🤖 CrewAI Analysis")
