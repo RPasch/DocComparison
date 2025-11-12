@@ -1,5 +1,9 @@
 from pathlib import Path
 from docling.document_converter import DocumentConverter as DoclingConverter
+from docling_core.types import ConversionStatus
+import logging
+
+logger = logging.getLogger(__name__)
 
 def convert_to_markdown(source_path: Path, out_md_path: Path) -> Path:
     """
@@ -8,9 +12,32 @@ def convert_to_markdown(source_path: Path, out_md_path: Path) -> Path:
     if not source_path.exists():
         raise FileNotFoundError(f"Input not found: {source_path}")
 
-    converter = DoclingConverter()
-    result = converter.convert(str(source_path))
-    md = result.document.export_to_markdown()
-
-    out_md_path.write_text(md, encoding="utf-8")
-    return out_md_path
+    try:
+        logger.info(f"Starting conversion of {source_path.name}")
+        converter = DoclingConverter()
+        result = converter.convert(str(source_path))
+        
+        # Check conversion status
+        if result.status == ConversionStatus.FAILURE:
+            error_msg = f"Conversion failed for: {source_path.name}"
+            if result.errors:
+                error_msg += f". Errors: {result.errors}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+        
+        if result.status == ConversionStatus.PARTIAL_SUCCESS:
+            logger.warning(f"Partial conversion for {source_path.name}: {result.errors}")
+        
+        # Export to markdown
+        md = result.document.export_to_markdown()
+        
+        if not md or len(md.strip()) == 0:
+            raise RuntimeError(f"No content extracted from {source_path.name}")
+        
+        out_md_path.write_text(md, encoding="utf-8")
+        logger.info(f"Successfully converted {source_path.name} to markdown")
+        return out_md_path
+        
+    except Exception as e:
+        logger.error(f"Error converting {source_path.name}: {str(e)}", exc_info=True)
+        raise

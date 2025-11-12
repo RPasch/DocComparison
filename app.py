@@ -136,7 +136,19 @@ if st.button("🚀 Process Documents", type="primary", use_container_width=True)
                     
                     st.success("✅ Documents processed successfully!")
             except Exception as e:
-                st.error(f"❌ Error processing documents: {str(e)}")
+                error_msg = str(e)
+                st.error(f"❌ Error processing documents: {error_msg}")
+                
+                # Show additional debugging info
+                with st.expander("📋 Detailed Error Information"):
+                    st.code(error_msg, language="text")
+                    st.info(
+                        "**Troubleshooting Tips:**\n"
+                        "- Ensure the PDF files are valid and not corrupted\n"
+                        "- Try with a smaller or simpler PDF first\n"
+                        "- Check that the file format is supported (PDF, PNG, JPG, TIFF, BMP)\n"
+                        "- For scanned documents, ensure image quality is good"
+                    )
 
 # Display results if available
 if "md1_path" in st.session_state and "md2_path" in st.session_state:
