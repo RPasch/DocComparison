@@ -15,12 +15,42 @@ def _setup_ocr_cache():
         # Create a temp directory for OCR models
         temp_dir = Path(tempfile.gettempdir()) / "doccomparison_ocr_cache"
         temp_dir.mkdir(parents=True, exist_ok=True)
+        models_dir = temp_dir / "models"
+        models_dir.mkdir(parents=True, exist_ok=True)
         
-        # Set environment variables for RapidOCR
+        # Set environment variables for RapidOCR and other ML libraries
         os.environ["RAPIDOCR_HOME"] = str(temp_dir)
-        os.environ["RAPIDOCR_MODELS_DIR"] = str(temp_dir / "models")
+        os.environ["RAPIDOCR_MODELS_DIR"] = str(models_dir)
+        os.environ["HF_HOME"] = str(temp_dir / "huggingface")
+        os.environ["TORCH_HOME"] = str(temp_dir / "torch")
         
         logger.info(f"OCR cache directory set to: {temp_dir}")
+        logger.info(f"Models directory: {models_dir}")
+        
+        # Try to patch RapidOCR's download function to use our temp directory
+        try:
+            from rapidocr.utils.download_file import download_file as original_download
+            
+            def patched_download(url, save_path):
+                """Patched download that uses our temp directory."""
+                # Redirect any venv paths to our temp directory
+                if "site-packages/rapidocr" in str(save_path):
+                    save_path = str(save_path).replace(
+                        "site-packages/rapidocr/models",
+                        str(models_dir)
+                    )
+                    save_path = Path(save_path)
+                    save_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                return original_download(url, save_path)
+            
+            # Monkey patch the download function
+            import rapidocr.utils.download_file
+            rapidocr.utils.download_file.download_file = patched_download
+            logger.info("RapidOCR download function patched successfully")
+        except Exception as e:
+            logger.warning(f"Could not patch RapidOCR download: {e}")
+            
     except Exception as e:
         logger.warning(f"Could not setup OCR cache directory: {e}")
 

@@ -8,6 +8,13 @@ from datetime import datetime
 import sys
 import os
 
+# Configure OCR cache BEFORE any imports that use it
+temp_cache = Path(tempfile.gettempdir()) / "doccomparison_ocr_cache"
+temp_cache.mkdir(parents=True, exist_ok=True)
+os.environ["RAPIDOCR_HOME"] = str(temp_cache)
+os.environ["RAPIDOCR_MODELS_DIR"] = str(temp_cache / "models")
+os.environ["HF_HOME"] = str(temp_cache / "huggingface")
+
 # Add the project root to the Python path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
